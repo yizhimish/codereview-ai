@@ -1,0 +1,11 @@
+﻿node_modules/
+__pycache__/
+*.pyc
+.env
+dist/
+.vscode/
+.idea/
+*.log
+permissions_backup_*.txt
+out/
+backend/__pycache__/

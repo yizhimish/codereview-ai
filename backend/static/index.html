@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CodeReview AI - 智能代码审查</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f0f23; color: #e0e0e0; min-height: 100vh; }
+        .container { max-width: 900px; margin: 0 auto; padding: 2rem; }
+        header { text-align: center; margin-bottom: 2rem; }
+        header h1 { font-size: 2rem; color: #00d4aa; margin-bottom: 0.5rem; }
+        header p { color: #888; font-size: 0.9rem; }
+        .editor-box { background: #1a1a2e; border: 1px solid #333; border-radius: 12px; padding: 1.5rem; margin-bottom: 1rem; }
+        textarea { width: 100%; min-height: 300px; background: #16213e; border: 1px solid #2a2a4a; border-radius: 8px; color: #e0e0e0; padding: 1rem; font-family: 'Consolas', 'Monaco', monospace; font-size: 14px; line-height: 1.5; resize: vertical; outline: none; }
+        textarea:focus { border-color: #00d4aa; }
+        .controls { display: flex; gap: 1rem; align-items: center; margin-top: 1rem; }
+        button { background: #00d4aa; color: #0f0f23; border: none; padding: 0.8rem 2rem; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+        button:hover { background: #00e6b8; transform: translateY(-1px); }
+        button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        .status { font-size: 0.85rem; color: #888; }
+        .status.loading { color: #ffd700; }
+        .status.done { color: #00d4aa; }
+        .result-box { background: #1a1a2e; border: 1px solid #333; border-radius: 12px; padding: 1.5rem; margin-top: 1rem; display: none; }
+        .result-box.visible { display: block; }
+        .result-box h3 { color: #00d4aa; margin-bottom: 1rem; }
+        .result-item { padding: 0.8rem; border-bottom: 1px solid #2a2a4a; }
+        .result-item:last-child { border-bottom: none; }
+        .result-item .type { font-weight: 600; color: #ffd700; }
+        .result-item .severity { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; margin-left: 8px; }
+        .severity.high { background: #ff4444; color: #fff; }
+        .severity.medium { background: #ffa500; color: #000; }
+        .severity.low { background: #888; color: #fff; }
+        .result-item pre { background: #16213e; padding: 0.5rem; border-radius: 4px; margin-top: 0.5rem; font-size: 13px; overflow-x: auto; white-space: pre-wrap; }
+        .example-link { color: #00d4aa; text-decoration: underline; cursor: pointer; font-size: 0.85rem; }
+        .example-link:hover { color: #00e6b8; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔍 CodeReview AI</h1>
+            <p>全AI自动代码审查系统 · 粘贴你的代码，即刻获得审查报告</p>
+        </header>
+
+        <div class="editor-box">
+            <textarea id="codeInput" placeholder="在这里粘贴你要审查的代码...&#10;&#10;支持: Python, JavaScript, TypeScript, Java, Go, Rust, C++ 等主流语言"></textarea>
+            <div class="controls">
+                <button id="analyzeBtn">🚀 开始审查</button>
+                <div class="status" id="status">就绪</div>
+                <span class="example-link" onclick="loadExample()">试试示例代码</span>
+            </div>
+        </div>
+
+        <div class="result-box" id="resultBox">
+            <h3>📋 审查结果</h3>
+            <div id="resultContent"></div>
+        </div>
+    </div>
+
+    <script>
+        const exampleCode = `def get_user_data(user_id):
+    """获取用户数据"""
+    import os
+    import json
+    
+    query = "SELECT * FROM users WHERE id = " + user_id
+    
+    db_password = os.getenv("DB_PASSWORD", "root")
+    
+    try:
+        data = {"name": "test"}
+        return data[user_id]
+    except:
+        pass
+    
+    return None`;
+
+        function loadExample() {
+            document.getElementById('codeInput').value = exampleCode;
+        }
+
+        document.getElementById('analyzeBtn').addEventListener('click', async () => {
+            const code = document.getElementById('codeInput').value.trim();
+            if (!code) {
+                document.getElementById('status').textContent = '请先粘贴代码';
+                document.getElementById('status').className = 'status';
+                return;
+            }
+
+            const btn = document.getElementById('analyzeBtn');
+            const status = document.getElementById('status');
+            btn.disabled = true;
+            status.textContent = '🔧 分析中...';
+            status.className = 'status loading';
+            document.getElementById('resultBox').classList.remove('visible');
+
+            try {
+                // 1. 提交分析
+                const res = await fetch('/analyze', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code })
+                });
+                
+                if (!res.ok) {
+                    const err = await res.json();
+                    status.textContent = '❌ ' + (err.detail?.[0]?.msg || err.message || '分析失败');
+                    status.className = 'status';
+                    btn.disabled = false;
+                    return;
+                }
+
+                const submitData = await res.json();
+                const jobId = submitData.job_id;
+                status.textContent = '⏳ 分析中... (' + (submitData.estimated_time || '等待中') + ')';
+
+                // 2. 轮询结果
+                await pollResult(jobId);
+
+            } catch (err) {
+                status.textContent = '❌ 请求失败: ' + err.message;
+                status.className = 'status';
+            }
+            
+            btn.disabled = false;
+        });
+
+        async function pollResult(jobId) {
+            const status = document.getElementById('status');
+            let attempts = 0;
+            const maxAttempts = 20;
+
+            while (attempts < maxAttempts) {
+                await new Promise(r => setTimeout(r, 1500));
+                attempts++;
+
+                try {
+                    const res = await fetch('/result/' + jobId);
+                    const data = await res.json();
+
+                    if (data.status === 'completed') {
+                        displayResults(data);
+                        status.textContent = '✅ 分析完成';
+                        status.className = 'status done';
+                        return;
+                    } else if (data.status === 'error' || data.status === 'failed') {
+                        status.textContent = '❌ 分析失败';
+                        status.className = 'status';
+                        displayResults(data);
+                        return;
+                    }
+
+                    status.textContent = '⏳ 分析中... (' + Math.round(attempts * 1.5) + 's)';
+                } catch {
+                    // 继续轮询
+                }
+            }
+
+            status.textContent = '⏰ 超时，请稍后刷新查看';
+            status.className = 'status';
+        }
+
+        function displayResults(data) {
+            const box = document.getElementById('resultBox');
+            const content = document.getElementById('resultContent');
+            
+            let html = '';
+            
+            const result = data.result || data;
+
+            if (result.summary) {
+                html += '<div class="result-item"><strong>📊 分析概览</strong><br>' + 
+                    escapeHtml(result.summary) + '</div>';
+            }
+            if (result.complexity) {
+                html += '<div class="result-item"><strong>🎯 复杂度</strong> ' + 
+                    escapeHtml(result.complexity) + '</div>';
+            }
+
+            if (result.issues && result.issues.length > 0) {
+                result.issues.forEach(issue => {
+                    const sevClass = issue.type === 'error' ? 'high' :
+                                     issue.type === 'warning' ? 'medium' : 'low';
+                    html += '<div class="result-item">';
+                    html += '<span class="type">' + escapeHtml(issue.type) + '</span>';
+                    html += '<span class="severity ' + sevClass + '">' + sevClass + '</span>';
+                    if (issue.line) html += ' <span style="color:#888">第' + issue.line + '行</span>';
+                    html += '<br><span>' + escapeHtml(issue.message) + '</span>';
+                    html += '</div>';
+                });
+            } else if (!result.summary) {
+                html += '<div class="result-item">✅ 未发现明显问题，代码质量不错！</div>';
+            }
+
+            content.innerHTML = html;
+            box.classList.add('visible');
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            return String(text).replace(/[&<>"'\/]/g, c => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;',
+                '"': '&quot;', "'": '&#39;',
+                '/': '&#x2F;'
+            })[c]);
+        }
+    </script>
+</body>
+</html>
