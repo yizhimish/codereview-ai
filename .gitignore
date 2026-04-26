@@ -5,8 +5,8 @@ __pycache__/
 *.pyo
 .env
 
-# Build artifacts
-frontend/build/
+# Build artifacts (Railway deployment needs build included)
+# frontend/build/
 
 # Dev & test noise
 test_*.py
