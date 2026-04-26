@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CodeReview AI - 定价</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
+  
+  /* 导航 */
+  .nav { background: #1e293b; border-bottom: 1px solid #334155; padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; }
+  .nav .logo { display: flex; align-items: center; gap: 10px; }
+  .nav .logo-icon { width: 36px; height: 36px; background: linear-gradient(135deg, #3b82f6, #8b5cf6); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: bold; color: white; font-size: 16px; }
+  .nav .logo-text { font-size: 20px; font-weight: 700; }
+  .nav .logo-text span { color: #60a5fa; }
+  .nav-links { display: flex; gap: 24px; }
+  .nav-links a { color: #94a3b8; text-decoration: none; font-size: 14px; transition: color .2s; }
+  .nav-links a:hover, .nav-links a.active { color: #60a5fa; }
+
+  /* Hero */
+  .hero { text-align: center; padding: 60px 24px 40px; }
+  .hero h1 { font-size: 42px; font-weight: 800; margin-bottom: 12px; background: linear-gradient(135deg, #60a5fa, #a78bfa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .hero p { color: #94a3b8; font-size: 18px; max-width: 600px; margin: 0 auto; }
+
+  /* 卡片区 */
+  .pricing { display: flex; justify-content: center; gap: 24px; padding: 0 24px 60px; flex-wrap: wrap; max-width: 1100px; margin: 0 auto; }
+  .card { background: #1e293b; border: 1px solid #334155; border-radius: 16px; padding: 32px; width: 320px; position: relative; transition: transform .2s, border-color .2s; }
+  .card:hover { transform: translateY(-4px); border-color: #475569; }
+  .card.popular { border-color: #3b82f6; border-width: 2px; }
+  .card .badge { position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: linear-gradient(135deg, #3b82f6, #8b5cf6); color: white; padding: 4px 16px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+  .card .plan-name { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+  .card .plan-desc { color: #94a3b8; font-size: 14px; margin-bottom: 24px; }
+  .card .price { font-size: 40px; font-weight: 800; }
+  .card .price span { font-size: 16px; color: #94a3b8; font-weight: 400; }
+  .card .price-sub { color: #94a3b8; font-size: 13px; margin-top: 4px; }
+  .card .features { list-style: none; margin: 24px 0; }
+  .card .features li { padding: 8px 0; font-size: 14px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #1e293b; }
+  .card .features li::before { content: "✓"; color: #22c55e; font-weight: bold; }
+  .card .features li.disabled { color: #475569; }
+  .card .features li.disabled::before { content: "✗"; color: #ef4444; }
+  .btn { display: block; text-align: center; padding: 12px; border-radius: 10px; font-weight: 600; font-size: 15px; cursor: pointer; text-decoration: none; transition: all .2s; }
+  .btn-primary { background: linear-gradient(135deg, #3b82f6, #8b5cf6); color: white; border: none; }
+  .btn-primary:hover { opacity: .9; }
+  .btn-outline { background: transparent; color: #60a5fa; border: 1px solid #334155; }
+  .btn-outline:hover { border-color: #60a5fa; background: rgba(59,130,246,.1); }
+
+  /* FAQ */
+  .faq { max-width: 700px; margin: 0 auto 60px; padding: 0 24px; }
+  .faq h2 { text-align: center; font-size: 28px; margin-bottom: 24px; }
+  .faq-item { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 20px; margin-bottom: 12px; }
+  .faq-item h3 { font-size: 15px; margin-bottom: 8px; }
+  .faq-item p { color: #94a3b8; font-size: 14px; line-height: 1.6; }
+
+  /* 页脚 */
+  .footer { text-align: center; padding: 24px; border-top: 1px solid #334155; color: #475569; font-size: 13px; }
+
+  @media (max-width: 768px) {
+    .hero h1 { font-size: 30px; }
+    .pricing { flex-direction: column; align-items: center; }
+    .card { width: 100%; max-width: 400px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="nav">
+  <div class="logo">
+    <div class="logo-icon">CR</div>
+    <div class="logo-text">CodeReview <span>AI</span></div>
+  </div>
+  <div class="nav-links">
+    <a href="/">首页</a>
+    <a href="/pricing" class="active">定价</a>
+    <a href="/docs">文档</a>
+    <a href="javascript:void(0)" onclick="showLoginForm()">登录</a>
+  </div>
+</div>
+
+<div class="hero">
+  <h1>为每个开发者而生</h1>
+  <p>从个人业余项目到企业级代码库，选择最适合你的方案</p>
+</div>
+
+<div class="pricing">
+  <!-- Free -->
+  <div class="card">
+    <div class="plan-name">免费版</div>
+    <div class="plan-desc">适合个人学习和试用</div>
+    <div class="price">$0 <span>/月</span></div>
+    <div class="price-sub">无需信用卡</div>
+    <ul class="features">
+      <li>每日50次代码分析</li>
+      <li>单次最多 10,000 字符</li>
+      <li>基础代码质量检查</li>
+      <li>Web端使用</li>
+      <li class="disabled">CLI工具</li>
+      <li class="disabled">API访问</li>
+      <li class="disabled">高级安全检测</li>
+    </ul>
+    <a href="javascript:void(0)" onclick="showRegisterForm()" class="btn btn-outline">开始使用</a>
+  </div>
+
+  <!-- Pro -->
+  <div class="card popular">
+    <div class="badge">最受欢迎</div>
+    <div class="plan-name">专业版</div>
+    <div class="plan-desc">适合独立开发者和小团队</div>
+    <div class="price">$29 <span>/月</span></div>
+    <div class="price-sub">或 $299/年（节省2个月）</div>
+    <ul class="features">
+      <li>无限代码分析</li>
+      <li>单次最多 100,000 字符</li>
+      <li>全面质量检查 + 安全检测</li>
+      <li>CLI工具 + API访问</li>
+      <li>WebSocket实时审查</li>
+      <li>专用API Key</li>
+      <li>优先技术支持</li>
+    </ul>
+    <a href="javascript:void(0)" onclick="showRegisterForm()" class="btn btn-primary">立即订阅</a>
+  </div>
+
+  <!-- Enterprise -->
+  <div class="card">
+    <div class="plan-name">企业版</div>
+    <div class="plan-desc">适合团队和组织</div>
+    <div class="price">$299 <span>/月</span></div>
+    <div class="price-sub">自定义定价，按需扩展</div>
+    <ul class="features">
+      <li>专业版所有功能</li>
+      <li>无字符限制</li>
+      <li>私有部署</li>
+      <li>团队管理控制台</li>
+      <li>SAML/SSO集成</li>
+      <li>审计日志</li>
+      <li>专属客户成功经理</li>
+    </ul>
+    <a href="#contact" class="btn btn-outline">联系销售</a>
+  </div>
+</div>
+
+<div class="faq">
+  <h2>常见问题</h2>
+  
+  <div class="faq-item">
+    <h3>免费版和付费版有什么区别？</h3>
+    <p>免费版每天50次分析，单次不超过10,000字符。专业版无限分析、支持100,000字符以上代码、提供CLI/API/WebSocket全套功能。企业版额外提供私有部署、团队管理和SSO集成。</p>
+  </div>
+
+  <div class="faq-item">
+    <h3>可以按月订阅吗？</h3>
+    <p>可以。专业版支持月付($29/月)和年付($299/年)。年付相当于赠送2个月免费使用。</p>
+  </div>
+
+  <div class="faq-item">
+    <h3>支持哪些编程语言？</h3>
+    <p>Python、JavaScript、TypeScript、Java、Go、Rust、C++。更多语言正在持续添加中。</p>
+  </div>
+
+  <div class="faq-item">
+    <h3>数据安全如何保障？</h3>
+    <p>所有代码分析在服务端完成，结果仅保留24小时后自动删除。企业版支持本地部署，代码永不离开你的网络。</p>
+  </div>
+</div>
+
+<div class="footer">
+  <p>© 2026 CodeReview AI · 全AI智能体公司 · CEO: Spark 🔥</p>
+  <p style="margin-top: 4px;"><a href="https://github.com/yizhimish/codereview-ai" target="_blank" style="color: #60a5fa;">GitHub</a></p>
+</div>
+
+<!-- 登录弹窗 -->
+<div id="loginModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:1000;justify-content:center;align-items:center;">
+  <div style="background:#1e293b;border:1px solid #334155;border-radius:16px;padding:32px;width:400px;max-width:90vw;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;">
+      <h2 style="font-size:22px;">登录 CodeReview AI</h2>
+      <button onclick="hideLoginForm()" style="background:none;border:none;color:#94a3b8;font-size:24px;cursor:pointer;">✕</button>
+    </div>
+    <form id="loginForm" onsubmit="return submitLogin(event)">
+      <div style="margin-bottom:16px;">
+        <label style="display:block;color:#94a3b8;font-size:14px;margin-bottom:6px;">用户名</label>
+        <input type="text" id="loginUsername" required style="width:100%;padding:10px 14px;background:#0f172a;border:1px solid #334155;border-radius:8px;color:white;font-size:14px;">
+      </div>
+      <div style="margin-bottom:24px;">
+        <label style="display:block;color:#94a3b8;font-size:14px;margin-bottom:6px;">密码</label>
+        <input type="password" id="loginPassword" required style="width:100%;padding:10px 14px;background:#0f172a;border:1px solid #334155;border-radius:8px;color:white;font-size:14px;">
+      </div>
+      <div id="loginResult" style="margin-bottom:12px;font-size:14px;"></div>
+      <button type="submit" style="width:100%;padding:12px;background:linear-gradient(135deg,#3b82f6,#8b5cf6);color:white;border:none;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;">登录并获取 API Key</button>
+    </form>
+    <p style="text-align:center;margin-top:16px;color:#94a3b8;font-size:13px;">还没有账号？<a href="javascript:void(0)" onclick="hideLoginForm();showRegisterForm()" style="color:#60a5fa;">注册</a></p>
+  </div>
+</div>
+
+<!-- 注册弹窗 -->
+<div id="registerModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:1000;justify-content:center;align-items:center;">
+  <div style="background:#1e293b;border:1px solid #334155;border-radius:16px;padding:32px;width:400px;max-width:90vw;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;">
+      <h2 style="font-size:22px;">注册 CodeReview AI</h2>
+      <button onclick="hideRegisterForm()" style="background:none;border:none;color:#94a3b8;font-size:24px;cursor:pointer;">✕</button>
+    </div>
+    <form id="registerForm" onsubmit="return submitRegister(event)">
+      <div style="margin-bottom:16px;">
+        <label style="display:block;color:#94a3b8;font-size:14px;margin-bottom:6px;">用户名</label>
+        <input type="text" id="regUsername" required minlength="3" style="width:100%;padding:10px 14px;background:#0f172a;border:1px solid #334155;border-radius:8px;color:white;font-size:14px;">
+      </div>
+      <div style="margin-bottom:16px;">
+        <label style="display:block;color:#94a3b8;font-size:14px;margin-bottom:6px;">邮箱</label>
+        <input type="email" id="regEmail" required style="width:100%;padding:10px 14px;background:#0f172a;border:1px solid #334155;border-radius:8px;color:white;font-size:14px;">
+      </div>
+      <div style="margin-bottom:24px;">
+        <label style="display:block;color:#94a3b8;font-size:14px;margin-bottom:6px;">密码</label>
+        <input type="password" id="regPassword" required minlength="6" style="width:100%;padding:10px 14px;background:#0f172a;border:1px solid #334155;border-radius:8px;color:white;font-size:14px;">
+      </div>
+      <div id="regResult" style="margin-bottom:12px;font-size:14px;"></div>
+      <button type="submit" style="width:100%;padding:12px;background:linear-gradient(135deg,#3b82f6,#8b5cf6);color:white;border:none;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;">注册并获取 API Key</button>
+    </form>
+  </div>
+</div>
+
+<script>
+function showRegisterForm() {
+  document.getElementById('registerModal').style.display = 'flex';
+  document.getElementById('guideModal').style.display = 'none';
+}
+function hideRegisterForm() {
+  document.getElementById('registerModal').style.display = 'none';
+}
+
+function showLoginForm() {
+  document.getElementById('loginModal').style.display = 'flex';
+  document.getElementById('guideModal').style.display = 'none';
+}
+function hideLoginForm() {
+  document.getElementById('loginModal').style.display = 'none';
+}
+
+async function submitLogin(e) {
+  e.preventDefault();
+  const username = document.getElementById('loginUsername').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  const resultEl = document.getElementById('loginResult');
+  resultEl.innerHTML = '<span style="color:#94a3b8;">登录中...</span>';
+  try {
+    const resp = await fetch('/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+    const data = await resp.json();
+    if (data.status === 'success') {
+      resultEl.innerHTML = '<span style="color:#22c55e;">✅ 登录成功！</span>';
+      e.target.querySelector('button[type=submit]').style.display = 'none';
+      setTimeout(() => {
+        document.getElementById('loginModal').style.display = 'none';
+        showGuide(data.data.api_key);
+      }, 1000);
+    } else {
+      resultEl.innerHTML = '<span style="color:#ef4444;">❌ ' + (data.detail || '登录失败') + '</span>';
+    }
+  } catch (err) {
+    resultEl.innerHTML = '<span style="color:#ef4444;">❌ 网络错误: ' + err.message + '</span>';
+  }
+  return false;
+}
+
+function showGuide(apiKey) {
+  const modal = document.getElementById('guideModal');
+  document.getElementById('guideApiKey').textContent = apiKey;
+  modal.style.display = 'flex';
+}
+function hideGuide() {
+  document.getElementById('guideModal').style.display = 'none';
+}
+
+async function submitRegister(e) {
+  e.preventDefault();
+  const username = document.getElementById('regUsername').value.trim();
+  const email = document.getElementById('regEmail').value.trim();
+  const password = document.getElementById('regPassword').value;
+  const resultEl = document.getElementById('regResult');
+  
+  resultEl.innerHTML = '<span style="color:#94a3b8;">注册中...</span>';
+  
+  try {
+    const resp = await fetch('/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, email, password })
+    });
+    const data = await resp.json();
+    if (data.status === 'success') {
+      const key = data.data.api_key;
+      resultEl.innerHTML = '<span style="color:#22c55e;">✅ 注册成功！</span>';
+      e.target.querySelector('button[type=submit]').style.display = 'none';
+      // 3秒后关闭弹窗并跳转到使用指南
+      setTimeout(() => {
+        document.getElementById('registerModal').style.display = 'none';
+        showGuide(key);
+      }, 1500);
+    } else {
+      resultEl.innerHTML = '<span style="color:#ef4444;">❌ ' + (data.detail || '注册失败') + '</span>';
+    }
+  } catch (err) {
+    resultEl.innerHTML = '<span style="color:#ef4444;">❌ 网络错误: ' + err.message + '</span>';
+  }
+  return false;
+}
+</script>
+<!-- 使用指南弹窗 -->
+<div id="guideModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:1000;justify-content:center;align-items:center;">
+  <div style="background:#1e293b;border:1px solid #334155;border-radius:16px;padding:32px;width:520px;max-width:90vw;max-height:85vh;overflow-y:auto;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+      <h2 style="font-size:22px;">🎉 注册成功！开始使用</h2>
+      <button onclick="hideGuide()" style="background:none;border:none;color:#94a3b8;font-size:24px;cursor:pointer;">✕</button>
+    </div>
+
+    <div style="margin-bottom:20px;">
+      <label style="color:#94a3b8;font-size:14px;margin-bottom:6px;display:block;">你的 API Key（请妥善保存）</label>
+      <code id="guideApiKey" style="display:block;background:#0f172a;padding:12px;border-radius:8px;font-size:13px;word-break:break-all;border:1px solid #334155;"></code>
+    </div>
+
+    <div style="background:#0f172a;border-radius:12px;padding:20px;margin-bottom:20px;">
+      <h3 style="font-size:16px;margin-bottom:12px;">🔧 方式一：在线使用</h3>
+      <p style="color:#94a3b8;font-size:14px;margin-bottom:8px;">1. 访问 <a href="/docs" style="color:#60a5fa;">API 文档</a></p>
+      <p style="color:#94a3b8;font-size:14px;margin-bottom:8px;">2. 在 Swagger UI 点击 "Authorize" 输入 API Key</p>
+      <p style="color:#94a3b8;font-size:14px;margin-bottom:8px;">3. 选择代码语言，粘贴代码，点击分析</p>
+      <p style="color:#94a3b8;font-size:14px;">4. 查看分析结果</p>
+    </div>
+
+    <div style="background:#0f172a;border-radius:12px;padding:20px;margin-bottom:20px;">
+      <h3 style="font-size:16px;margin-bottom:12px;">🔌 方式二：CLI 命令行</h3>
+      <p style="color:#94a3b8;font-size:14px;margin-bottom:8px;">安装 CLI：</p>
+      <code style="display:block;background:#1e293b;padding:10px;border-radius:6px;font-size:13px;">pip install codereview-ai</code>
+      <p style="color:#94a3b8;font-size:14px;margin:12px 0 8px;">设置 API Key：</p>
+      <code style="display:block;background:#1e293b;padding:10px;border-radius:6px;font-size:13px;">export CODEREVIEW_API_KEY='<span id="guideCliKey"></span>'</code>
+      <p style="color:#94a3b8;font-size:14px;margin:12px 0 8px;">分析文件：</p>
+      <code style="display:block;background:#1e293b;padding:10px;border-radius:6px;font-size:13px;">codereview analyze myfile.py</code>
+    </div>
+
+    <div style="background:#0f172a;border-radius:12px;padding:20px;margin-bottom:20px;">
+      <h3 style="font-size:16px;margin-bottom:12px;">🐍 方式三：Python SDK</h3>
+      <code style="display:block;background:#1e293b;padding:10px;border-radius:6px;font-size:13px;">
+import requests
+<br><br>
+resp = requests.post(<br>
+  "http://localhost:9000/analyze",<br>
+  headers={"Authorization": "Bearer <span id="guideSdkKey"></span>"},<br>
+  json={"code": "print('hello')", "language": "python"}<br>
+)<br>
+print(resp.json())
+      </code>
+    </div>
+
+    <div style="display:flex;gap:12px;margin-top:24px;">
+      <a href="/docs" target="_blank" style="flex:1;text-align:center;padding:12px;background:linear-gradient(135deg,#3b82f6,#8b5cf6);color:white;border-radius:10px;text-decoration:none;font-weight:600;">📖 查看文档</a>
+      <button onclick="hideGuide()" style="flex:1;padding:12px;background:transparent;color:#60a5fa;border:1px solid #334155;border-radius:10px;cursor:pointer;font-weight:600;">关闭</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function showGuide(apiKey) {
+  document.getElementById('guideApiKey').textContent = apiKey;
+  document.getElementById('guideCliKey').textContent = apiKey;
+  document.getElementById('guideSdkKey').textContent = apiKey;
+  document.getElementById('guideModal').style.display = 'flex';
+}
+function hideGuide() {
+  document.getElementById('guideModal').style.display = 'none';
+}
+</script>
+</body>
+</html>

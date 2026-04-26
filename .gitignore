@@ -1,11 +1,41 @@
-﻿node_modules/
+# Dependencies
+node_modules/
 __pycache__/
 *.pyc
+*.pyo
 .env
-dist/
-.vscode/
+
+# Build artifacts
+frontend/build/
+
+# Dev & test noise
+test_*.py
+*_test.py
+*test_*.py
+*_temp.*
+*_backup.*
+*_old.*
+
+# Encoding fixing scripts
+backend/fix_*.py
+backend/check_damage.py
+backend/rewrite_main.py
+backend/screenshot_template.py
+
+# Temp docs
+README_new.md
+README_test.md
+
+# Marketing & media
+marketing/
+video-demo/
+
+# IDE
 .idea/
-*.log
-permissions_backup_*.txt
-out/
-backend/__pycache__/
+.vscode/
+*.swp
+*.swo
+
+# OS
+Thumbs.db
+.DS_Store

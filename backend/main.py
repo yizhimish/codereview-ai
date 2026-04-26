@@ -1,284 +1,289 @@
-﻿import asyncio
+import asyncio
 import uuid
 import time
+import os
 from datetime import datetime
 from typing import Optional, Dict, Any
-
-from fastapi import FastAPI, WebSocket, HTTPException, Request
+from fastapi import FastAPI, WebSocket, HTTPException, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse, HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-# ==================== 閰嶇疆 ====================
-MAX_CODE_LENGTH = 50000  # 鍏抽敭锛氫粠10000鏀逛负50000
-CHUNK_SIZE = 1000  # 澶ф枃浠跺垎鍧楀ぇ灏?
-# ==================== 搴旂敤鍒濆鍖?====================
-app = FastAPI(title="CodeReview AI", version="2.0.0")
+from auth import (
+    register_user, authenticate, validate_api_key,
+    extract_api_key, get_user_info, regenerate_api_key
+)
 
-# CORS閰嶇疆
+MAX_CODE_LENGTH = 50000
+FRONTEND_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "frontend", "build")
+
+app = FastAPI(title="CodeReview AI", version="2.1.0")
+
+# ── Mount frontend static files if built ─────────────────────
+if os.path.exists(FRONTEND_DIR):
+    app.mount("/static", StaticFiles(directory=os.path.join(FRONTEND_DIR, "static")), name="static")
+else:
+    FRONTEND_DIR = None
+
+@app.get("/")
+async def serve_index():
+    if FRONTEND_DIR:
+        pricing_html = os.path.join(FRONTEND_DIR, "pricing.html")
+        if os.path.exists(pricing_html):
+            return FileResponse(pricing_html)
+        return FileResponse(os.path.join(FRONTEND_DIR, "index.html"))
+    return JSONResponse({
+        "app": "CodeReview AI", "version": "2.1.0",
+        "message": "Frontend not built. Run: cd frontend && npm run build",
+        "docs": "/docs"
+    })
+
+@app.get("/pricing")
+async def serve_pricing():
+    if FRONTEND_DIR:
+        p = os.path.join(FRONTEND_DIR, "pricing.html")
+        if os.path.exists(p):
+            return FileResponse(p)
+    return {"message": "Pricing page not available"}
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# 璇锋眰鏃ュ織涓棿浠?@app.middleware("http")
+@app.middleware("http")
 async def add_process_time_header(request: Request, call_next):
     start_time = time.time()
     response = await call_next(request)
-    process_time = time.time() - start_time
-    response.headers["X-Process-Time"] = str(process_time)
-    response.headers["X-Powered-By"] = "CodeReview AI 2.0.0"
+    response.headers["X-Process-Time"] = str(time.time() - start_time)
     return response
 
-# ==================== 鏁版嵁妯″瀷 ====================
+
+# ── Pydantic models ───────────────────────────────────────────
+
 class CodeRequest(BaseModel):
-    code: str = Field(..., min_length=1, max_length=MAX_CODE_LENGTH, description="瑕佸垎鏋愮殑浠ｇ爜")
-    language: Optional[str] = Field("python", description="缂栫▼璇█")
+    code: str = Field(..., min_length=1, max_length=MAX_CODE_LENGTH)
+    language: Optional[str] = Field("python")
 
-    class Config:
-        anystr_strip_whitespace = True
-        min_anystr_length = 1
+class RegisterRequest(BaseModel):
+    username: str = Field(..., min_length=3, max_length=32)
+    password: str = Field(..., min_length=6, max_length=128)
+    email: str = Field(..., max_length=128)
 
-class TaskStatus(BaseModel):
-    job_id: str
-    status: str
-    progress: Optional[int] = 0
-    message: Optional[str] = None
-    result: Optional[Dict[str, Any]] = None
+class LoginRequest(BaseModel):
+    username: str
+    password: str
 
-# ==================== 瀛樺偍 ====================
-tasks_db = {}
-websocket_connections = {}
+class RegenerateKeyRequest(BaseModel):
+    username: str
+    password: str
 
-# ==================== 鍋ュ悍妫€鏌?====================
+
+# ── In-memory store for async analysis ────────────────────────
+_tasks_db: Dict[str, Dict[str, Any]] = {}
+
+
+# ── Health & Debug ────────────────────────────────────────────
+
 @app.get("/health")
-async def health_check():
-    return {
-        "status": "healthy",
-        "service": "codereview-ai",
-        "version": "2.0.0",
-        "timestamp": datetime.now().isoformat(),
-        "jobs_running": len([t for t in tasks_db.values() if t["status"] == "processing"]),
-        "jobs_pending": len([t for t in tasks_db.values() if t["status"] == "pending"])
-    }
+async def health():
+    return {"status": "healthy", "version": "2.1.0", "timestamp": time.time()}
 
-# ==================== 璋冭瘯绔偣 ====================
-@app.get("/debug/file-info")
-async def debug_file_info(code: str = ""):
-    """璋冭瘯绔偣锛氭煡鐪嬫枃浠朵俊鎭?""
-    line_count = len(code.split('\n')) if code else 0
-    is_large_file = len(code) > 10000
+@app.get("/debug")
+async def debug():
+    return {"app": "CodeReview AI", "version": "2.1.0", "max_code_length": MAX_CODE_LENGTH, "frontend_built": FRONTEND_DIR is not None}
 
-    return {
-        "code_length": len(code),
-        "line_count": line_count,
-        "is_large_file": is_large_file,
-        "chunks_needed": (line_count // CHUNK_SIZE) + 1 if is_large_file else 1,
-        "max_length_allowed": MAX_CODE_LENGTH,
-        "chars_remaining": MAX_CODE_LENGTH - len(code) if code else MAX_CODE_LENGTH,
-        "chunk_size": CHUNK_SIZE
-    }
 
-# ==================== 浠ｇ爜鍒嗘瀽 ====================
+# ── User / Auth Endpoints ─────────────────────────────────────
+
+@app.post("/auth/register")
+async def api_register(req: RegisterRequest):
+    """注册新用户并获取API Key"""
+    result = register_user(req.username, req.password, req.email)
+    if result is None:
+        raise HTTPException(status_code=409, detail="Username already exists")
+    return {"status": "success", "data": result}
+
+@app.post("/auth/login")
+async def api_login(req: LoginRequest):
+    """登录验证并获取API Key"""
+    result = authenticate(req.username, req.password)
+    if result is None:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    return {"status": "success", "data": result}
+
+@app.post("/auth/regenerate-key")
+async def api_regenerate_key(req: RegenerateKeyRequest):
+    """重新生成API Key（旧的会失效）"""
+    new_key = regenerate_api_key(req.username, req.password)
+    if new_key is None:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    return {"status": "success", "data": {"api_key": new_key}}
+
+@app.get("/auth/me")
+async def api_me(request: Request):
+    """获取当前用户信息（通过Authorization头）"""
+    auth_header = request.headers.get("Authorization")
+    api_key = extract_api_key(auth_header)
+    if not api_key:
+        raise HTTPException(status_code=401, detail="Missing or invalid API key")
+    info = validate_api_key(api_key)
+    if info is None:
+        raise HTTPException(status_code=401, detail="Invalid API key")
+    user_info = get_user_info(info["username"])
+    return {"status": "success", "data": user_info}
+
+
+# ── Code Review Endpoints ─────────────────────────────────────
+
+def _require_auth(request: Request) -> Optional[Dict]:
+    """检查请求是否包含有效的API Key（可选认证模式）"""
+    auth_header = request.headers.get("Authorization")
+    if not auth_header:
+        return None  # 允许未认证请求（但会受速率限制）
+    api_key = extract_api_key(auth_header)
+    if api_key:
+        info = validate_api_key(api_key)
+        if info:
+            return info
+    return None
+
 @app.post("/analyze")
-async def analyze_code(request: CodeRequest):
-    """鍒嗘瀽浠ｇ爜 - 鏀寔澶ф枃浠跺垎鍧楀鐞?""
-
-    # 1. 楠岃瘉浠ｇ爜闀垮害
-    if len(request.code) > MAX_CODE_LENGTH:
+async def analyze_code(request: Request, data: CodeRequest):
+    if len(data.code) > MAX_CODE_LENGTH:
         return JSONResponse(
             status_code=400,
             content={
-                "error": "浠ｇ爜杩囬暱",
-                "message": f"鏈€澶ф敮鎸?{MAX_CODE_LENGTH} 瀛楃锛屽綋鍓?{len(request.code)} 瀛楃",
-                "suggestion": "璇峰皢浠ｇ爜鍒嗘鎻愪氦鎴栬仈绯荤鐞嗗憳"
-            },
-            headers={"Content-Type": "application/json; charset=utf-8"}
+                "error": "code_too_long",
+                "message": f"Max code length is {MAX_CODE_LENGTH}, got {len(data.code)} chars",
+            }
         )
 
-    # 2. 鐢熸垚浠诲姟ID
+    # 可选认证 —— free用户有代码长度限制
+    auth_info = _require_auth(request)
+    if auth_info:
+        user_info = get_user_info(auth_info["username"])
+        plan = user_info.get("plan", "free") if user_info else "free"
+        if plan == "free" and len(data.code) > 10000:
+            return JSONResponse(
+                status_code=403,
+                content={
+                    "error": "plan_limit",
+                    "message": "Free plan limited to 10000 chars. Upgrade or use API Key.",
+                }
+            )
+
     job_id = str(uuid.uuid4())
 
-    # 3. 鍒ゆ柇鏄惁涓哄ぇ鏂囦欢
-    is_large_file = len(request.code) > 10000
-    line_count = len(request.code.split('\n'))
-    chunks_needed = (line_count // CHUNK_SIZE) + 1 if is_large_file else 1
+    from analyzer import analyze
+    result = analyze(data.code, data.language or "python")
 
-    # 4. 瀛樺偍浠诲姟
-    tasks_db[job_id] = {
+    _tasks_db[job_id] = {
         "job_id": job_id,
-        "code_preview": request.code[:100] + "..." if len(request.code) > 100 else request.code,
-        "status": "processing",
-        "progress": 0,
-        "total_chunks": chunks_needed,
-        "completed_chunks": 0,
+        "code_preview": data.code[:100],
+        "status": "completed",
         "created_at": datetime.now().isoformat(),
-        "is_large_file": is_large_file,
-        "total_lines": line_count,
-        "result": None
+        **result,
     }
 
-    # 5. 鍚姩寮傛浠诲姟
-    if is_large_file:
-        asyncio.create_task(process_large_file_async(job_id, request.code))
-    else:
-        asyncio.create_task(process_normal_file_async(job_id, request.code))
+    return {
+        "status": "completed",
+        "job_id": job_id,
+        **result,
+    }
 
-    # 6. 杩斿洖202 Accepted
-    return JSONResponse(
-        status_code=202,
-        content={
-            "job_id": job_id,
-            "status": "processing",
-            "message": f"鍒嗘瀽浠诲姟宸叉彁浜'锛堝ぇ鏂囦欢锛屽垎鍧楀鐞嗕腑锛? if is_large_file else ''}",
-            "estimated_time": f"{chunks_needed * 2}-{chunks_needed * 5}绉? if is_large_file else "3-5绉?,
-            "total_chunks": chunks_needed,
-            "total_lines": line_count,
-            "is_large_file": is_large_file
-        },
-        headers={"Content-Type": "application/json; charset=utf-8"}
-    )
-
-# ==================== 缁撴灉鏌ヨ ====================
 @app.get("/result/{job_id}")
 async def get_result(job_id: str):
-    """鏌ヨ鍒嗘瀽缁撴灉"""
-    if job_id not in tasks_db:
-        raise HTTPException(status_code=404, detail="浠诲姟涓嶅瓨鍦?)
+    task = _tasks_db.get(job_id)
+    if not task:
+        return JSONResponse(
+            status_code=404,
+            content={"error": "not_found", "message": f"Job {job_id} not found"}
+        )
+    return {"status": task.get("status", "completed"), "job_id": job_id, **task}
 
-    task = tasks_db[job_id]
-    return task
 
-# ==================== WebSocket ====================
+# ── WebSocket ──────────────────────────────────────────────────
+
 @app.websocket("/ws/{job_id}")
 async def websocket_endpoint(websocket: WebSocket, job_id: str):
     await websocket.accept()
-    websocket_connections[job_id] = websocket
-
     try:
-        while True:
-            # 淇濇寔杩炴帴锛屾帹閫佽繘搴︽洿鏂?            await asyncio.sleep(1)
-            if job_id in tasks_db:
-                task = tasks_db[job_id]
-                await websocket.send_json({
-                    "job_id": job_id,
-                    "status": task["status"],
-                    "progress": task["progress"],
-                    "completed_chunks": task.get("completed_chunks", 0),
-                    "total_chunks": task.get("total_chunks", 1)
-                })
-    except:
-        if job_id in websocket_connections:
-            del websocket_connections[job_id]
+        await websocket.send_json({"type": "progress", "stage": "connecting", "progress": 0})
 
-# ==================== 澶勭悊鍑芥暟 ====================
-async def process_normal_file_async(job_id: str, code: str):
-    """澶勭悊鏅€氭枃浠讹紙< 10000瀛楃锛?""
-    try:
-        # 妯℃嫙澶勭悊鏃堕棿
-        await asyncio.sleep(2)
+        data = await asyncio.wait_for(websocket.receive_json(), timeout=30.0)
+        code = data.get("code", "")
+        language = data.get("language", "python")
 
-        # 鏇存柊浠诲姟鐘舵€?        tasks_db[job_id].update({
-            "status": "completed",
-            "progress": 100,
-            "result": {
-                "issues": [
-                    {"type": "info", "message": "浠ｇ爜缁撴瀯鑹ソ", "line": 1},
-                    {"type": "warning", "message": "寤鸿娣诲姞娉ㄩ噴", "line": 5}
-                ],
-                "summary": "浠ｇ爜璐ㄩ噺鑹ソ锛屾湁鏀硅繘绌洪棿",
-                "complexity": "浣?
-            },
-            "completed_at": datetime.now().isoformat()
-        })
-
-        # 閫氱煡WebSocket
-        if job_id in websocket_connections:
-            ws = websocket_connections[job_id]
-            await ws.send_json({"job_id": job_id, "status": "completed", "progress": 100})
-
-    except Exception as e:
-        tasks_db[job_id].update({
-            "status": "failed",
-            "error": str(e)
-        })
-
-async def process_large_file_async(job_id: str, code: str):
-    """澶勭悊澶ф枃浠讹紙> 10000瀛楃锛? 鍒嗗潡澶勭悊"""
-    try:
-        lines = code.split('\n')
-        total_chunks = (len(lines) // CHUNK_SIZE) + 1
-
-        for chunk_index in range(total_chunks):
-            start = chunk_index * CHUNK_SIZE
-            end = min((chunk_index + 1) * CHUNK_SIZE, len(lines))
-            chunk = '\n'.join(lines[start:end])
-
-            # 澶勭悊褰撳墠鍧?            await asyncio.sleep(1)  # 妯℃嫙澶勭悊鏃堕棿
-
-            # 鏇存柊杩涘害
-            progress = int(((chunk_index + 1) / total_chunks) * 100)
-            completed_chunks = chunk_index + 1
-
-            tasks_db[job_id].update({
-                "progress": progress,
-                "completed_chunks": completed_chunks,
-                "status": f"processing_chunk_{completed_chunks}_of_{total_chunks}"
-            })
-
-            # 閫氱煡WebSocket
-            if job_id in websocket_connections:
-                ws = websocket_connections[job_id]
-                await ws.send_json({
-                    "job_id": job_id,
-                    "status": "processing",
-                    "progress": progress,
-                    "completed_chunks": completed_chunks,
-                    "total_chunks": total_chunks
-                })
-
-        # 鎵€鏈夊潡澶勭悊瀹屾垚
-        tasks_db[job_id].update({
-            "status": "completed",
-            "progress": 100,
-            "result": {
-                "issues": [
-                    {"type": "info", "message": f"澶ф枃浠跺鐞嗗畬鎴愶紝鍏眥len(lines)}琛?, "line": 1},
-                    {"type": "info", "message": f"鍒唟total_chunks}鍧楀鐞?, "line": 2}
-                ],
-                "summary": f"澶ф枃浠跺垎鏋愬畬鎴愶紝鍏眥len(lines)}琛岋紝鍒唟total_chunks}鍧楀鐞?,
-                "complexity": "涓?,
-                "chunks_processed": total_chunks
-            },
-            "completed_at": datetime.now().isoformat()
-        })
-
-        # 鏈€缁堥€氱煡
-        if job_id in websocket_connections:
-            ws = websocket_connections[job_id]
-            await ws.send_json({
+        if not code or len(code) > MAX_CODE_LENGTH:
+            await websocket.send_json({
+                "type": "error",
+                "message": f"Code must be 1-{MAX_CODE_LENGTH} characters",
                 "job_id": job_id,
-                "status": "completed",
-                "progress": 100,
-                "message": f"澶ф枃浠跺垎鏋愬畬鎴愶紝鍏眥total_chunks}鍧?
             })
+            return
 
-    except Exception as e:
-        tasks_db[job_id].update({
-            "status": "failed",
-            "error": str(e)
+        progress_sent = set()
+
+        async def progress_callback(stage: str, progress: int):
+            if stage in progress_sent:
+                return
+            progress_sent.add(stage)
+            try:
+                await websocket.send_json({
+                    "type": "progress",
+                    "stage": stage,
+                    "progress": progress,
+                    "job_id": job_id,
+                })
+            except Exception:
+                pass
+
+        from analyzer import analyze
+        result = analyze(code, language, progress_callback=progress_callback)
+
+        _tasks_db[job_id] = {
+            "job_id": job_id,
+            "code_preview": code[:100],
+            "status": "completed",
+            "created_at": datetime.now().isoformat(),
+            **result,
+        }
+
+        await websocket.send_json({
+            "type": "complete",
+            "status": "completed",
+            "job_id": job_id,
+            "progress": 100,
+            **result,
         })
 
-# ==================== 鍚姩搴旂敤 ====================
+    except asyncio.TimeoutError:
+        try:
+            await websocket.send_json({"type": "error", "message": "Timeout waiting for code input"})
+        except Exception:
+            pass
+    except Exception:
+        pass
+    finally:
+        try:
+            await websocket.close()
+        except Exception:
+            pass
+
+
 if __name__ == "__main__":
     import uvicorn
-    print("CodeReview AI 鍚庣鏈嶅姟鍚姩涓?..")
-    print(f"绔彛锛?000")
-    print(f"鏈€澶ф枃浠跺ぇ灏忥細{MAX_CODE_LENGTH} 瀛楃")
-    print(f"鍒嗗潡澶у皬锛歿CHUNK_SIZE} 琛?鍧?)
-    print(f"澶ф枃浠堕槇鍊硷細10000 瀛楃")
-    print("鏈嶅姟鍚姩瀹屾垚锛岀瓑寰呰姹?..")
+    fe_status = "OK" if FRONTEND_DIR else "NOT BUILT"
+    print(f"""
+  CodeReview AI v2.1.0
+  Auth: /auth/register | /auth/login | /auth/me
+  API:  /analyze | /result/{{id}} | /ws/{{id}}
+  Web:  / (pricing) | /docs
+  Frontend: {fe_status}  |  Port: 9000
+""")
     uvicorn.run(app, host="0.0.0.0", port=9000)
