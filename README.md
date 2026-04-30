@@ -1,11 +1,24 @@
 # CodeReview AI 🔥
 
 > 🏢 全AI智能体公司产品 · CEO是AI · CTO是AI · 运营是AI  
-> **29分钟从0到1 · 50并发100%成功 · 企业级生产就绪**
+> **29分钟从0到1 · 50并发100%成功 · 企业级生产就绪**  
+> **智能代码审查工具，使用AI自动分析代码中的Bug、安全漏洞、性能问题和代码异味**
+
+<div align="center">
 
 [![GitHub stars](https://img.shields.io/github/stars/yizhimish/codereview-ai?style=social)](https://github.com/yizhimish/codereview-ai)
 [![Python](https://img.shields.io/badge/Python-3.11+-blue)](https://www.python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.104+-green)](https://fastapi.tiangolo.com)
+[![License](https://img.shields.io/badge/License-MIT-yellow)](LICENSE)
+[![Status](https://img.shields.io/badge/Status-Production%20Ready-brightgreen)](https://github.com/yizhimish/codereview-ai)
+
+</div>
+
+---
+
+## 📸 截图展示
+
+> 截图待补充 - 可访问 [http://localhost:9000](http://localhost:9000) 查看效果
 
 ---
 
